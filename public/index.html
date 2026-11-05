@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KPL猜选手</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="container">
+  <!-- 首页 -->
+  <div id="page-home">
+    <h1 class="title">KPL 猜选手</h1>
+    <div class="card">
+      <h3>✨ 创建房间（房主）</h3>
+      <input id="crid" placeholder="房间号，例如 2026">
+      <input id="cpwd" placeholder="设置房间密码">
+      <div class="radio-row">
+        <label><input type="radio" name="df" value="easy">简单 30</label>
+        <label><input type="radio" name="df" value="mid">中等 60</label>
+        <label><input type="radio" name="df" value="hard" checked>困难 全部</label>
+      </div>
+      <button class="btn primary" id="btnCreate">创建房间</button>
+    </div>
+    <div class="card">
+      <h3>🤍 加入房间</h3>
+      <input id="jrid" placeholder="输入房间号">
+      <input id="jpwd" placeholder="输入房间密码">
+      <button class="btn primary" id="btnJoin">加入房间</button>
+    </div>
+    <div id="homeTip"></div>
+  </div>
+
+  <!-- 等待大厅 -->
+  <div id="page-lobby" class="hide">
+    <div class="card">
+      <h2>等待队友</h2>
+      <p>房间号：<span id="lrid"></span></p>
+      <p>人数：<span id="lcount">1</span> / 2</p>
+      <button class="btn primary ownerBtn hide" id="btnStart">开始游戏</button>
+      <button class="btn ghost" id="back1">返回首页</button>
+    </div>
+  </div>
+
+  <!-- 选自己的选手 -->
+  <div id="page-pick" class="hide">
+    <div class="card">
+      <h2>选择你自己的选手</h2>
+      <p>选好之后等待对方，双方都选完开始轮流提问</p>
+      <div id="pickGrid" class="grid"></div>
+      <div id="pickTip"></div>
+      <button class="btn ghost" id="back2">返回首页</button>
+    </div>
+  </div>
+
+  <!-- 游戏主界面 -->
+  <div id="page-game" class="hide">
+    <div class="card">
+      <h2>游戏中</h2>
+      <p id="turnHint"></p>
+      <div class="chatBox" id="chatLog"></div>
+      <div class="askRow">
+        <input id="askInput" placeholder="输入你的问题">
+        <button class="btn small" id="btnAsk">提问</button>
+      </div>
+      <div class="ansRow hide" id="ansZone">
+        <p>对方提问，请回答：</p>
+        <button class="btn small ansBtn" data-val="是">是</button>
+        <button class="btn small ansBtn" data-val="否">否</button>
+        <button class="btn small ansBtn" data-val="不确定">不确定</button>
+      </div>
+      <div class="guessRow">
+        <input id="guessInput" placeholder="猜测对方选手（仅一次机会！）">
+        <button class="btn small danger" id="btnGuess">提交猜测</button>
+      </div>
+      <div class="grid" id="gameGrid"></div>
+      <div id="gameTip"></div>
+      <button class="btn primary ownerBtn hide" id="btnRestart">重新开局</button>
+      <button class="btn ghost" id="back3">返回首页</button>
+    </div>
+  </div>
+</div>
+<script src="/socket.io/socket.io.js"></script>
+<script src="script.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vconsole@3/dist/vconsole.min.js"></script>
+<script>new VConsole()</script>
+</body>
+</html>
