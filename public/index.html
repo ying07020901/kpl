@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KPL猜猜我是谁-双人联机</title>
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<div id="app">
+  <div id="enterPanel">
+    <h2>创建 / 加入房间</h2>
+    <input placeholder="房间号" id="roomId">
+    <input placeholder="房间密码" id="roomPwd">
+    <div class="diff">
+      <label><input type="radio" name="diff" value="easy" checked>简单(30)</label>
+      <label><input type="radio" name="diff" value="mid">中等(60)</label>
+      <label><input type="radio" name="diff" value="hard">困难(全部)</label>
+    </div>
+    <button id="joinBtn">进入房间</button>
+    <div id="tipMsg"></div>
+  </div>
+
+  <div id="pickPanel" class="hide">
+    <h3>选择你自己的秘密选手，不要给对方看到！</h3>
+    <div class="playerGrid" id="pickGrid"></div>
+  </div>
+
+  <div id="gamePanel" class="hide">
+    <div class="topBar">
+      <span id="turnText"></span>
+      <span>你的猜测次数：<span id="guessLeft">1</span></span>
+    </div>
+    <div class="chatBox" id="chatBox"></div>
+    <div class="inputRow">
+      <input id="questionInp" placeholder="输入你想问的问题">
+      <button id="askBtn">提问</button>
+    </div>
+    <div class="replyRow hide" id="replyRow">
+      <p>对方的问题：<span id="qShow"></span></p>
+      <button data-a="是">是</button>
+      <button data-a="否">否</button>
+      <button data-a="不确定">不确定</button>
+    </div>
+    <div class="guessRow">
+      <p>猜对方人物（仅一次机会，不区分大小写）</p>
+      <input id="guessInp" placeholder="输入名字猜测">
+      <button id="guessBtn">确认猜测</button>
+    </div>
+    <div class="ctrlRow">
+      <button id="restartBtn">再来一局</button>
+    </div>
+    <h4>人物池（单击打叉｜双击问号）</h4>
+    <div class="playerGrid" id="gameGrid"></div>
+  </div>
+</div>
+<script src="/socket.io/socket.io.js"></script>
+<script src="./script.js"></script>
+<script src="https://cdn.bootcdn.net/ajax/libs/vConsole/3.15.1/vconsole.min.js"></script>
+<script>new VConsole()</script>
+</body>
+</html>
