@@ -1,0 +1,497 @@
+　　<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KPL猜选手｜双人联机</title>
+<script src="https://cdn.jsdelivr.net/npm/socket.io@4.7.2/dist/socket.io.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+body{
+  background:#fff7fa;
+  color:#552b3d;
+  padding:14px;
+}
+.container{max-width:1100px;margin:0 auto}
+.card{
+  background:#ffffff;
+  border-radius:24px;
+  padding:22px;
+  box-shadow: 0 4px 20px rgba(255,180,210,0.35);
+  border:1px solid #ffe4f0;
+  margin-bottom:16px;
+}
+h2{text-align:center;margin-bottom:20px;color:#c25886;font-weight:600}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+input,select,button{
+  padding:12px 14px;border-radius:16px;border:1px solid #f1c5da;font-size:16px;
+}
+input,select{flex:1;min-width:140px;background:#fffafc;color:#442233}
+button{
+  background:#f6b2cd;color:#ffffff;border:none;cursor:pointer;
+  transition:0.22s ease;
+  font-weight:500;
+}
+button:hover{background:#ec8fb3}
+button:disabled{background:#e9e9e9;color:#999;cursor:not-allowed}
+.player-grid{
+  display:grid;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap:12px;
+  margin:16px 0 20px;
+}
+.p-card{
+  border:2px solid #f4c8dd;
+  border-radius:18px;
+  padding:10px 6px;
+  text-align:center;
+  background:#fff;
+  cursor:pointer;
+  position:relative;
+  user-select:none;
+  transition:0.2s;
+}
+.p-card:hover{border-color:#f098bc;transform:translateY(-2px)}
+.p-card.mark-x{background:#ffe9ec;border-color:#f4a1b0}
+.p-card.mark-q{background:#fff8dd;border-color:#f2d288}
+.p-card.selected{border:3px solid #e8689b}
+.p-card img{
+  width:72px;height:72px;
+  object-fit:cover;
+  border-radius:14px;
+  margin-bottom:6px;
+}
+.p-card .name{
+  font-size:14px;
+  color:#662f44;
+  font-weight:500;
+  word-break:break-all;
+}
+.p-card .tag{
+  position:absolute;top:6px;right:8px;
+  font-weight:bold;font-size:22px;
+  color:#b8446c;
+}
+.chat-wrap{
+  border:1px solid #ffe2ee;
+  border-radius:20px;
+  background:#fff;
+  padding:16px;
+  height:260px;
+  overflow-y:auto;
+  margin-bottom:14px;
+}
+.msg{margin-bottom:10px;display:flex}
+.msg.self{justify-content:flex-end}
+.msg .bubble{
+  max-width:70%;
+  padding:10px 14px;
+  border-radius:18px;
+  font-size:15px;
+}
+.msg.other .bubble{
+  background:#fce4ee;
+  border-bottom-left-radius:4px;
+}
+.msg.self .bubble{
+  background:#f7b8d0;
+  color:white;
+  border-bottom-right-radius:4px;
+}
+.hidden{display:none !important}
+.tip{color:#c4507c;text-align:center;margin:8px 0}
+.turn-tip{font-size:18px;text-align:center;font-weight:bold;color:#b04b78;margin:8px 0}
+</style>
+</head>
+<body>
+<div class="container">
+  <div id="page-home" class="card">
+    <h2>✨ KPL猜选手联机</h2>
+    <div class="row">
+      <input id="home-room" placeholder="房间号">
+      <input id="home-pwd" placeholder="房间密码">
+      <select id="home-diff">
+        <option value="easy">简单（随机30位）</option>
+        <option value="mid">中等（随机60位）</option>
+        <option value="hard">困难（全部选手）</option>
+      </select>
+    </div>
+    <div class="row">
+      <button onclick="createRoom()">创建房间（房主）</button>
+      <button onclick="joinRoom()">加入房间</button>
+    </div>
+  </div>
+
+  <div id="page-wait" class="card hidden">
+    <h2>💌 等待队友</h2>
+    <div class="tip">房间号：<span id="w-room"></span>｜当前人数：<span id="w-cnt"></span>/2</div>
+    <div class="tip hidden" id="tip-full">两个人都到齐啦！房主可以点击下方按钮开启游戏</div>
+    <div class="turn-tip">先挑选一名选手，作为你的隐藏目标</div>
+    <div class="player-grid" id="wait-grid"></div>
+    <div class="row" style="justify-content:center;margin-top:10px">
+      <button id="btn-host-start" class="hidden" onclick="hostStartGame()">房主：开始游戏</button>
+    </div>
+  </div>
+
+  <div id="page-game" class="card hidden">
+    <h2>🎮 游戏对局</h2>
+    <div class="turn-tip" id="turn-info"></div>
+    <div class="player-grid" id="game-grid"></div>
+    <div class="tip">单击照片 → 打叉排除｜双击照片 → 标记问号</div>
+    <div class="chat-wrap" id="chat-box"></div>
+    <div class="row">
+      <input id="ask-input" placeholder="输入你的问题（例如：是不是打野？）">
+      <button onclick="sendAsk()">发送提问</button>
+    </div>
+    <div class="row hidden" id="reply-area">
+      <span>对方的问题，请选择回答：</span>
+      <button onclick="sendReply('是')">是</button>
+      <button onclick="sendReply('否')">否</button>
+      <button onclick="sendReply('不确定')">不确定</button>
+    </div>
+    <div class="row">
+      <input id="guess-input" placeholder="猜测对方选手（仅有一次机会！）">
+      <button onclick="sendGuess()">提交猜测</button>
+    </div>
+    <div class="row hidden" id="restart-row" style="justify-content:center;margin-top:12px">
+      <button onclick="restartGame()">房主：再来一局</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// =====================在这里粘贴图片直链！！链接全部放在双引""里面！=====================
+const avatarMap = {
+  "Fly":"https://i.postimg.cc/YqDQP98F/IMG-1253.jpg", 
+  "轩染":"",
+  "坦然":"",
+  "清清":"",
+  "诺言":"",
+  "柠栀":"",
+  "归期":"",
+  "梓墨":"",
+  "无言":"",
+  "星痕":"",
+  "久龙":"",
+  "神人":"",
+  "六点六":"",
+  "无痕":"",
+  "英凯":"",
+  "小度":"",
+  "花缘":"",
+  "轻语":"",
+  "萝卜":"",
+  "小乐":"",
+  "小泽":"",
+  "流星":"",
+  "小落":"",
+  "无幻":"",
+  "樱花":"",
+  "誓约":"",
+  "天云":"",
+  "奶龙":"",
+  "钟意":"",
+  "小胖":"",
+  "暖阳":"",
+  "句号":"",
+  "今屿":"",
+  "皖皖":"",
+  "小轩":"",
+  "花海":"",
+  "梦泪":"",
+  "夏凌":"",
+  "染详":"",
+  "米苏":"",
+  "无双":"",
+  "落尘":"",
+  "小楼":"",
+  "余忆":"",
+  "安凉":"",
+  "书源":"",
+  "佳心":"",
+  "bao":"",
+  "长生":"",
+  "清融":"",
+  "向鱼":"",
+  "流浪":"",
+  "紫幻":"",
+  "听悦":"",
+  "Ming":"",
+  "花卷":"",
+  "九尾":"",
+  "鹤辞":"",
+  "Cat":"",
+  "老帅":"",
+  "久诚":"",
+  "一曲":"",
+  "瓶子":"",
+  "昊昊":"",
+  "玖熙":"",
+  "吕成林":"",
+  "小名":"",
+  "挽墨":"",
+  "久哲":"",
+  "一诺":"",
+  "妖刀":"",
+  "小麦":"",
+  "小俞":"",
+  "小屿":"",
+  "风箫":"",
+  "道崽":"",
+  "钎城":"",
+  "梦岚":"",
+  "乔兮":"",
+  "小雪":"",
+  "刺痛":"",
+  "Hurt":"",
+  "亮宇":"",
+  "灵儿":"",
+  "sk":"",
+  "绝意":"",
+  "小玖":"",
+  "零栩":"",
+  "小寒":"",
+  "小久":"",
+  "子阳":"",
+  "大帅":"",
+  "帆帆":"",
+  "一笙":"",
+  "阿豆":"",
+  "无畏":"",
+  "久酷":"",
+  "玖欣":"",
+  "冰尘":"",
+  "梦溪":"",
+  "信":"",
+  "晚星":"",
+  "小崽":"",
+  "白清":"",
+  "小鹿":"",
+  "小A":"",
+  "救赎":"",
+  "萧玦":"",
+  "北岛":"",
+  "落空":"",
+  "星宇":"",
+  "涛":"",
+  "gemini":"",
+  "李九":"",
+  "_default":"https://p3-flow-image-sign.byteimg.com/tos-cn-i-a9rns2rl98/96201200087441189014020240043111~tplv-a9rns2rl98-image.image"
+};
+// =================================头像配置结束====================================
+
+const socket = io();
+let roomId = "";
+let isHost = false;
+let myTarget = null;
+let guessUsed = false;
+let playerList = [];
+let myId = null;
+let nowTurn = null;
+const $ = s => document.querySelector(s);
+const $$ = s => document.querySelectorAll(s);
+
+socket.on('connect', () => { myId = socket.id; });
+socket.on('msg', txt => alert(txt));
+
+socket.on('enterRoom', d => {
+  roomId = $("#home-room").value.trim();
+  isHost = d.isHost;
+  playerList = d.playerList;
+  $("#page-home").classList.add("hidden");
+  $("#page-wait").classList.remove("hidden");
+  $("#w-room").innerText = roomId;
+  $("#w-cnt").innerText = d.count;
+  renderWaitGrid();
+});
+
+socket.on('updateCount', cnt => {
+  $("#w-cnt").innerText = cnt;
+});
+
+socket.on('roomFull', () => {
+  $("#tip-full").classList.remove("hidden");
+  if (isHost) $("#btn-host-start").classList.remove("hidden");
+});
+
+socket.on('gameStart', d => {
+  $("#page-wait").classList.add("hidden");
+  $("#page-game").classList.remove("hidden");
+  nowTurn = d.firstTurn;
+  renderGameGrid();
+  refreshTurnUI();
+  appendChat("系统", "游戏正式开始！轮流提问，猜猜对方的选手是谁", "other");
+});
+
+socket.on('recvAsk', d => {
+  appendChat("对方", d.question, "other");
+  if (d.from !== myId) {
+    $("#reply-area").classList.remove("hidden");
+  }
+});
+
+socket.on('recvReply', d => {
+  appendChat("对方", d.ans, "other");
+  $("#reply-area").classList.add("hidden");
+  nowTurn = d.nextTurn;
+  refreshTurnUI();
+});
+
+socket.on('guessResult', d => {
+  if (d.win) {
+    if (d.guesser === myId) {
+      appendChat("系统", `🎉 恭喜！猜对啦！对方选手是：${d.answer}`, "other");
+    } else {
+      appendChat("系统", `💥 对手猜对了！你的选手是：${d.answer}`, "other");
+    }
+  } else {
+    if (d.guesser === myId) {
+      appendChat("系统", `❌ 猜错啦，你的猜测机会用完了！对方选手是：${d.answer}`, "other");
+    } else {
+      appendChat("系统", `❌ 对手猜错，机会用完！你的选手是：${d.answer}`, "other");
+    }
+  }
+  $("#restart-row").classList.remove("hidden");
+});
+
+socket.on('restartGame', d => {
+  playerList = d.playerList;
+  guessUsed = false;
+  myTarget = null;
+  $("#chat-box").innerHTML = "";
+  $("#restart-row").classList.add("hidden");
+  $("#page-game").classList.add("hidden");
+  $("#page-wait").classList.remove("hidden");
+  $("#tip-full").classList.add("hidden");
+  $("#btn-host-start").classList.add("hidden");
+  renderWaitGrid();
+});
+
+function createRoom() {
+  const rid = $("#home-room").value.trim();
+  const pwd = $("#home-pwd").value.trim();
+  const diff = $("#home-diff").value;
+  if (!rid || !pwd) return alert("请填写房间号和密码");
+  socket.emit("createRoom", { roomId: rid, pwd, diff });
+}
+function joinRoom() {
+  const rid = $("#home-room").value.trim();
+  const pwd = $("#home-pwd").value.trim();
+  if (!rid || !pwd) return alert("请填写房间号和密码");
+  socket.emit("joinRoom", { roomId: rid, pwd });
+}
+function hostStartGame() {
+  if (!isHost) return;
+  socket.emit("hostStartGame", roomId);
+}
+
+function renderWaitGrid() {
+  const wrap = $("#wait-grid");
+  wrap.innerHTML = "";
+  playerList.forEach(name => {
+    const div = document.createElement("div");
+    div.className = "p-card";
+    div.innerHTML = `
+      <img src="${avatarMap[name] || avatarMap['_default']}" alt="${name}">
+      <div class="name">${name}</div>
+    `;
+    div.onclick = () => {
+      $$("#wait-grid .p-card").forEach(c => c.classList.remove("selected"));
+      div.classList.add("selected");
+      myTarget = name;
+      socket.emit("selectTarget", { roomId, name });
+    };
+    wrap.appendChild(div);
+  });
+}
+
+function renderGameGrid() {
+  const wrap = $("#game-grid");
+  wrap.innerHTML = "";
+  playerList.forEach(name => {
+    const div = document.createElement("div");
+    div.className = "p-card";
+    div.innerHTML = `
+      <img src="${avatarMap[name] || avatarMap['_default']}" alt="${name}">
+      <div class="name">${name}</div>
+      <span class="tag"></span>
+    `;
+    let mark = null;
+    const tag = div.querySelector(".tag");
+    div.onclick = () => {
+      if (mark === "x") {
+        div.classList.remove("mark-x");
+        tag.innerText = "";
+        mark = null;
+      } else {
+        div.classList.remove("mark-q");
+        div.classList.add("mark-x");
+        tag.innerText = "✕";
+        mark = "x";
+      }
+    };
+    div.ondblclick = (e) => {
+      e.preventDefault();
+      if (mark === "q") {
+        div.classList.remove("mark-q");
+        tag.innerText = "";
+        mark = null;
+      } else {
+        div.classList.remove("mark-x");
+        div.classList.add("mark-q");
+        tag.innerText = "？";
+        mark = "q";
+      }
+    };
+    wrap.appendChild(div);
+  });
+}
+
+function refreshTurnUI() {
+  if (nowTurn === myId) {
+    $("#turn-info").innerText = "🟢 轮到你提问！";
+  } else {
+    $("#turn-info").innerText = "🔴 等待对方提问";
+  }
+}
+
+function sendAsk() {
+  if (nowTurn !== myId) return alert("还没有轮到你提问");
+  const q = $("#ask-input").value.trim();
+  if (!q) return;
+  socket.emit("ask", { roomId, q });
+  appendChat("我", q, "self");
+  $("#ask-input").value = "";
+  nowTurn = null;
+  refreshTurnUI();
+}
+function sendReply(ans) {
+  socket.emit("reply", { roomId, ans });
+  appendChat("我", ans, "self");
+  $("#reply-area").classList.add("hidden");
+}
+function sendGuess() {
+  if (guessUsed) return alert("猜测机会已经用完！");
+  const g = $("#guess-input").value.trim();
+  if (!g) return;
+  guessUsed = true;
+  socket.emit("guess", { roomId, guessName: g });
+  appendChat("我", `猜测：${g}`, "self");
+  $("#guess-input").value = "";
+}
+function restartGame() {
+  if (!isHost) return;
+  socket.emit("restart", roomId);
+}
+
+function appendChat(sender, text, type) {
+  const box = $("#chat-box");
+  const item = document.createElement("div");
+  item.className = `msg ${type}`;
+  item.innerHTML = `<div class="bubble"><b>${sender}：</b>${text}</div>`;
+  box.appendChild(item);
+  box.scrollTop = box.scrollHeight;
+}
+</script>
+</body>
+</html>
